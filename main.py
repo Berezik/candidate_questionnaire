@@ -1,34 +1,22 @@
 import sys
 import os
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMenu, QAction
+from PyQt6.QtGui import QIcon
 
-# Додаємо теку ui до шляху пошуку модулів
-sys.path.append(os.path.join(os.path.dirname(__file__), 'ui'))
+# Додаємо шляхи для імпортів
+sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 
 def main():
-    try:
-        # Створюємо додаток
-        app = QApplication(sys.argv)
+    app = QApplication(sys.argv)
 
-        # Імпортуємо та створюємо головне вікно
-        from ui.main_window import CandidateManagementApp
-        window = CandidateManagementApp()
-        window.show()
+    from ui.main_window import CandidateManagementApp
+    window = CandidateManagementApp()
+    window.show()
 
-        print("Програма запущена успішно")
-        print("База даних ініціалізована")
-
-        # Запускаємо головний цикл подій
-        return app.exec()
-
-    except Exception as e:
-        print(f"Сталася помилка: {e}")
-        import traceback
-        traceback.print_exc()
-        input("Натисніть Enter для виходу...")
-        return 1
+    # Запускаємо додаток
+    app.exec()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
