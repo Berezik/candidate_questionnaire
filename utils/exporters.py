@@ -9,34 +9,31 @@ class PDFExporter:
     def __init__(self):
         self.pdf = FPDF()
         self.pdf.set_auto_page_break(auto=True, margin=15)
-        # Додаємо підтримку кирилиці
-        self.pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
-        self.pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)
 
     def export_candidate_to_pdf(self, candidate_data, output_path):
         try:
             self.pdf.add_page()
 
             # Заголовок
-            self.pdf.set_font("DejaVu", 'B', 16)
-            self.pdf.cell(0, 10, "АНКЕТА КАНДИДАТА", 0, 1, 'C')
+            self.pdf.set_font("Arial", 'B', 16)
+            self.pdf.cell(0, 10, "CANDIDATE FORM", 0, 1, 'C')
             self.pdf.ln(5)
 
             # Особиста інформація
-            self.pdf.set_font("DejaVu", 'B', 12)
-            self.pdf.cell(0, 10, "Особиста інформація", 0, 1)
-            self.pdf.set_font("DejaVu", '', 10)
+            self.pdf.set_font("Arial", 'B', 12)
+            self.pdf.cell(0, 10, "Personal Information", 0, 1)
+            self.pdf.set_font("Arial", '', 10)
 
             info_data = [
-                ["Прізвище", candidate_data.get('last_name', '')],
-                ["Ім'я", candidate_data.get('first_name', '')],
-                ["По батькові", candidate_data.get('middle_name', '')],
-                ["Дата народження", str(candidate_data.get('birth_date', ''))],
-                ["Місце народження", candidate_data.get('birth_place', '')],
-                ["РНОКПП", candidate_data.get('tax_number', '')],
-                ["Стать", candidate_data.get('gender', '')],
-                ["Національність", candidate_data.get('nationality', '')],
-                ["Громадянство", candidate_data.get('citizenship', '')]
+                ["Last Name", candidate_data.get('last_name', '')],
+                ["First Name", candidate_data.get('first_name', '')],
+                ["Middle Name", candidate_data.get('middle_name', '')],
+                ["Birth Date", str(candidate_data.get('birth_date', ''))],
+                ["Birth Place", candidate_data.get('birth_place', '')],
+                ["Tax Number", candidate_data.get('tax_number', '')],
+                ["Gender", candidate_data.get('gender', '')],
+                ["Nationality", candidate_data.get('nationality', '')],
+                ["Citizenship", candidate_data.get('citizenship', '')]
             ]
 
             for label, value in info_data:
@@ -47,14 +44,14 @@ class PDFExporter:
             self.pdf.ln(5)
 
             # Контактна інформація
-            self.pdf.set_font("DejaVu", 'B', 12)
-            self.pdf.cell(0, 10, "Контактна інформація", 0, 1)
-            self.pdf.set_font("DejaVu", '', 10)
+            self.pdf.set_font("Arial", 'B', 12)
+            self.pdf.cell(0, 10, "Contact Information", 0, 1)
+            self.pdf.set_font("Arial", '', 10)
 
             contact_data = [
                 ["Email", candidate_data.get('email', '')],
-                ["Адреса реєстрації", candidate_data.get('registration_address', '')],
-                ["Адреса проживання", candidate_data.get('actual_address', '')]
+                ["Registration Address", candidate_data.get('registration_address', '')],
+                ["Actual Address", candidate_data.get('actual_address', '')]
             ]
 
             for label, value in contact_data:

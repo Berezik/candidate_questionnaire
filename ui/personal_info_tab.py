@@ -128,6 +128,7 @@ class PersonalInfoTab(QWidget):
         self.phone_input = QLineEdit()
         self.phone_input.setPlaceholderText("+380XXXXXXXXX")
         self.add_phone_btn = QPushButton("+ Додати ще телефон")
+        self.add_phone_btn.setObjectName("secondary-button")
         phone_layout.addRow("Телефон:", self.phone_input)
         phone_layout.addRow("", self.add_phone_btn)
 
@@ -186,9 +187,9 @@ class PersonalInfoTab(QWidget):
             "ПриватБанк", "Ощадбанк", "Укрексімбанк", "Raiffeisen Bank",
             "UTB Bank of Ukraine", "First Ukrainian International Bank (ПУМБ)",
             "Sense Bank", "Укрсиббанк", "Універсал Банк", "Crédit Agricole",
-            "ОТП Банк", "Cidadebank", "КредоБанк", "Укргазбанк", "Південний", "Такомбанк"
+            "ОТП Банк", "Cidadebank", "КредоБанк", "Укргазбанк", "Південний", "Таскомбанк"
         ]
-        self.bank_combo.addItem("-- Оберіть банк --")  # Додали пустий варіант
+        self.bank_combo.addItem("-- Оберіть банк --")
         self.bank_combo.addItems(banks)
 
         self.iban_input = QLineEdit()
@@ -225,7 +226,9 @@ class PersonalInfoTab(QWidget):
 
         photo_btn_layout = QHBoxLayout()
         self.upload_photo_btn = QPushButton("Завантажити фото")
+        self.upload_photo_btn.setObjectName("secondary-button")
         self.delete_photo_btn = QPushButton("Видалити фото")
+        self.delete_photo_btn.setObjectName("destructive-button")
         photo_btn_layout.addWidget(self.upload_photo_btn)
         photo_btn_layout.addWidget(self.delete_photo_btn)
 
@@ -458,10 +461,6 @@ class PersonalInfoTab(QWidget):
                     'phone_number': self.phone2_input.text().strip(),
                     'phone_type': 'additional'
                 })
-                # Додаємо phones до даних
-                data['phones'] = phones
-
-                return data
 
             if phones:
                 data['phones'] = phones

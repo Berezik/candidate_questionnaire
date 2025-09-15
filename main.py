@@ -1,8 +1,7 @@
 import sys
 import os
-from PyQt6.QtWidgets import QApplication, QMenu
-from PyQt6.QtGui import QAction
-
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QSettings
 
 # Додаємо шляхи для імпортів
 sys.path.append(os.path.join(os.path.dirname(__file__)))
