@@ -458,6 +458,10 @@ class PersonalInfoTab(QWidget):
                     'phone_number': self.phone2_input.text().strip(),
                     'phone_type': 'additional'
                 })
+                # Додаємо phones до даних
+                data['phones'] = phones
+
+                return data
 
             if phones:
                 data['phones'] = phones

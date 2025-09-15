@@ -9,20 +9,23 @@ class PDFExporter:
     def __init__(self):
         self.pdf = FPDF()
         self.pdf.set_auto_page_break(auto=True, margin=15)
+        # Додаємо підтримку кирилиці
+        self.pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+        self.pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)
 
     def export_candidate_to_pdf(self, candidate_data, output_path):
         try:
             self.pdf.add_page()
 
             # Заголовок
-            self.pdf.set_font("Arial", 'B', 16)
+            self.pdf.set_font("DejaVu", 'B', 16)
             self.pdf.cell(0, 10, "АНКЕТА КАНДИДАТА", 0, 1, 'C')
             self.pdf.ln(5)
 
             # Особиста інформація
-            self.pdf.set_font("Arial", 'B', 12)
+            self.pdf.set_font("DejaVu", 'B', 12)
             self.pdf.cell(0, 10, "Особиста інформація", 0, 1)
-            self.pdf.set_font("Arial", '', 10)
+            self.pdf.set_font("DejaVu", '', 10)
 
             info_data = [
                 ["Прізвище", candidate_data.get('last_name', '')],
@@ -39,14 +42,14 @@ class PDFExporter:
             for label, value in info_data:
                 if value:
                     self.pdf.cell(50, 6, f"{label}:", 0, 0)
-                    self.pdf.cell(0, 6, value, 0, 1)
+                    self.pdf.cell(0, 6, str(value), 0, 1)
 
             self.pdf.ln(5)
 
             # Контактна інформація
-            self.pdf.set_font("Arial", 'B', 12)
+            self.pdf.set_font("DejaVu", 'B', 12)
             self.pdf.cell(0, 10, "Контактна інформація", 0, 1)
-            self.pdf.set_font("Arial", '', 10)
+            self.pdf.set_font("DejaVu", '', 10)
 
             contact_data = [
                 ["Email", candidate_data.get('email', '')],
@@ -57,7 +60,7 @@ class PDFExporter:
             for label, value in contact_data:
                 if value:
                     self.pdf.cell(50, 6, f"{label}:", 0, 0)
-                    self.pdf.multi_cell(0, 6, value)
+                    self.pdf.multi_cell(0, 6, str(value))
 
             self.pdf.ln(5)
 
@@ -67,6 +70,8 @@ class PDFExporter:
 
         except Exception as e:
             print(f"Помилка при експорті в PDF: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
 
@@ -78,15 +83,19 @@ class ExcelExporter:
 
             data = []
             for candidate in candidates:
+                # Отримуємо телефони для кожного кандидата
+                phones = db_manager.get_phones_for_candidate(candidate.id)
+                phone_numbers = ", ".join([phone.phone_number for phone in phones if phone.phone_number])
+
                 data.append({
-                    'Прізвище': candidate.last_name,
-                    'Ім\'я': candidate.first_name,
-                    'По батькові': candidate.middle_name,
-                    'РНОКПП': candidate.tax_number,
-                    'Дата народження': candidate.birth_date,
-                    'Email': candidate.email,
-                    'Телефон': candidate.phones[0].phone_number if candidate.phones else '',
-                    'Дата додавання': candidate.created_date
+                    'Прізвище': candidate.last_name or '',
+                    'Ім\'я': candidate.first_name or '',
+                    'По батькові': candidate.middle_name or '',
+                    'РНОКПП': candidate.tax_number or '',
+                    'Дата народження': candidate.birth_date or '',
+                    'Email': candidate.email or '',
+                    'Телефон': phone_numbers,
+                    'Дата додавання': candidate.created_at or ''
                 })
 
             df = pd.DataFrame(data)
@@ -95,4 +104,6 @@ class ExcelExporter:
 
         except Exception as e:
             print(f"Помилка при експорті в Excel: {e}")
+            import traceback
+            traceback.print_exc()
             return False

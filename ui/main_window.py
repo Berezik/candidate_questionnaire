@@ -460,21 +460,30 @@ class CandidateManagementApp(QMainWindow):
     def save_and_new_candidate(self):
         self.save_candidate()
         self.add_candidate()
-    
+
     def export_to_pdf(self):
         if not self.current_candidate_id:
             QMessageBox.warning(self, "Помилка", "Виберіть кандидата для експорту")
             return
-        
+
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Зберегти PDF", f"candidate_{self.current_candidate_id}.pdf", "PDF Files (*.pdf)"
         )
-        
+
         if file_path:
             candidate, phones = self.db_manager.get_candidate_by_id(self.current_candidate_id)
             if candidate:
+                # Конвертуємо об'єкт candidate у словник
+                candidate_dict = {}
+                for column in candidate.__table__.columns:
+                    value = getattr(candidate, column.name)
+                    candidate_dict[column.name] = value
+
+                # Додаємо телефони
+                candidate_dict['phones'] = [phone.phone_number for phone in phones]
+
                 exporter = PDFExporter()
-                if exporter.export_candidate_to_pdf(candidate.__dict__, file_path):
+                if exporter.export_candidate_to_pdf(candidate_dict, file_path):
                     QMessageBox.information(self, "Успіх", "PDF успішно експортовано")
                 else:
                     QMessageBox.warning(self, "Помилка", "Не вдалося експортувати PDF")
