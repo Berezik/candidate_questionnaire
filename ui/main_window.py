@@ -2,26 +2,26 @@ import sys
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QSplitter, QListWidget, QLineEdit, QPushButton, 
-                             QGroupBox, QTabWidget, QMessageBox, QListWidgetItem)
+                             QGroupBox, QTabWidget, QMessageBox, QListWidgetItem,
+                             QMenuBar, QStatusBar, QFileDialog, QDialog, QLabel,
+                             QMenu)
 from PyQt6.QtCore import Qt, QDate
-from PyQt6.QtGui import QIcon, QPixmap  # Додано QPixmap
+from PyQt6.QtGui import QIcon, QPixmap, QAction
 
 # Додаємо шлях до батьківської директорії для імпортів
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.database import DatabaseManager
 from ui.personal_info_tab import PersonalInfoTab
-
-# Додаємо шлях до батьківської директорії для імпортів
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from database.database import DatabaseManager
-from ui.personal_info_tab import PersonalInfoTab
+from utils.exporters import PDFExporter, ExcelExporter
+from utils.backup_manager import BackupManager, DataImporter
+from utils.reports import StatisticsManager, ChartWidget
+from ui.styles import ThemeManager
 
 class CandidateManagementApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Анкета кандидата")
+        self.setWindowTitle("Анкета кандидата - Система управління")
         self.setGeometry(100, 100, 1400, 800)
         self.current_candidate_id = None
         
@@ -29,7 +29,17 @@ class CandidateManagementApp(QMainWindow):
         self.db_manager = DatabaseManager()
         self.db_manager.init_db()
         
+        # Додаємо менеджер тем
+        self.theme_manager = ThemeManager()
+        self.current_theme = "light"
+        
+        # Додаємо менеджери утиліт
+        self.backup_manager = BackupManager()
+        self.data_importer = DataImporter()
+        self.statistics_manager = StatisticsManager()
+        
         self.init_ui()
+        self.apply_theme(self.current_theme)
         self.refresh_list()
         
     def init_ui(self):
@@ -72,6 +82,14 @@ class CandidateManagementApp(QMainWindow):
         
         # Підключення сигналів
         self.connect_signals()
+        
+        # Додаємо меню
+        self.create_menu_bar()
+        
+        # Додаємо статус бар
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.update_status_bar()
     
     def create_left_panel(self):
         left_widget = QWidget()
@@ -120,6 +138,67 @@ class CandidateManagementApp(QMainWindow):
         save_layout.addStretch()
         return save_widget
     
+    def create_menu_bar(self):
+        menu_bar = QMenuBar()
+        
+        # Меню Файл
+        file_menu = QMenu("Файл", self)
+        
+        export_pdf_action = QAction("Експорт в PDF", self)
+        export_pdf_action.triggered.connect(self.export_to_pdf)
+        file_menu.addAction(export_pdf_action)
+        
+        export_excel_action = QAction("Експорт в Excel", self)
+        export_excel_action.triggered.connect(self.export_to_excel)
+        file_menu.addAction(export_excel_action)
+        
+        file_menu.addSeparator()
+        
+        backup_action = QAction("Створити резервну копію", self)
+        backup_action.triggered.connect(self.create_backup)
+        file_menu.addAction(backup_action)
+        
+        restore_action = QAction("Відновити з резервної копії", self)
+        restore_action.triggered.connect(self.restore_backup)
+        file_menu.addAction(restore_action)
+        
+        file_menu.addSeparator()
+        
+        import_action = QAction("Імпорт з Excel", self)
+        import_action.triggered.connect(self.import_from_excel)
+        file_menu.addAction(import_action)
+        
+        file_menu.addSeparator()
+        
+        exit_action = QAction("Вихід", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+        
+        # Меню Вигляд
+        view_menu = QMenu("Вигляд", self)
+        
+        light_theme_action = QAction("Світла тема", self)
+        light_theme_action.triggered.connect(lambda: self.apply_theme("light"))
+        view_menu.addAction(light_theme_action)
+        
+        dark_theme_action = QAction("Темна тема", self)
+        dark_theme_action.triggered.connect(lambda: self.apply_theme("dark"))
+        view_menu.addAction(dark_theme_action)
+        
+        # Меню Звіти
+        reports_menu = QMenu("Звіти", self)
+        
+        stats_action = QAction("Статистика", self)
+        stats_action.triggered.connect(self.show_statistics)
+        reports_menu.addAction(stats_action)
+        
+        # Додаємо меню до меню бару
+        menu_bar.addMenu(file_menu)
+        menu_bar.addMenu(view_menu)
+        menu_bar.addMenu(reports_menu)
+        
+        self.setMenuBar(menu_bar)
+    
     def connect_signals(self):
         self.add_btn.clicked.connect(self.add_candidate)
         self.delete_btn.clicked.connect(self.delete_candidate)
@@ -127,6 +206,16 @@ class CandidateManagementApp(QMainWindow):
         self.clear_btn.clicked.connect(self.clear_form)
         self.save_btn.clicked.connect(self.save_candidate)
         self.save_new_btn.clicked.connect(self.save_and_new_candidate)
+    
+    def apply_theme(self, theme_name):
+        self.current_theme = theme_name
+        
+        if theme_name == "dark":
+            self.setPalette(self.theme_manager.get_dark_theme())
+        else:
+            self.setPalette(self.theme_manager.get_light_theme())
+        
+        self.setStyleSheet(self.theme_manager.get_stylesheet(theme_name))
     
     def add_candidate(self):
         self.clear_form()
@@ -159,6 +248,7 @@ class CandidateManagementApp(QMainWindow):
         candidates = self.db_manager.get_all_candidates()
         if not candidates:
             print("В базі даних ще немає кандидатів")
+            self.update_status_bar()
             return
             
         for candidate in candidates:
@@ -168,6 +258,12 @@ class CandidateManagementApp(QMainWindow):
             item = QListWidgetItem(item_text)
             item.setData(Qt.ItemDataRole.UserRole, candidate.id)
             self.candidates_list.addItem(item)
+        
+        self.update_status_bar()
+    
+    def update_status_bar(self):
+        count = self.statistics_manager.get_candidate_count()
+        self.status_bar.showMessage(f"Загальна кількість кандидатів: {count}")
     
     def on_search_changed(self):
         search_term = self.search_input.text().strip()
@@ -188,8 +284,6 @@ class CandidateManagementApp(QMainWindow):
     def on_candidate_selected(self, item):
         candidate_id = item.data(Qt.ItemDataRole.UserRole)
         self.current_candidate_id = candidate_id
-        # Тут буде завантаження даних кандидата в форму
-        print(f"Обрано кандидата з ID: {candidate_id}")
         
         # Завантажуємо дані кандидата
         candidate, phones = self.db_manager.get_candidate_by_id(candidate_id)
@@ -198,6 +292,8 @@ class CandidateManagementApp(QMainWindow):
     
     def load_candidate_data(self, candidate, phones):
         """Завантажує дані кандидата у форму"""
+        from PyQt6.QtGui import QPixmap
+        
         # Основна інформація
         self.personal_info_tab.last_name_input.setText(candidate.last_name or "")
         self.personal_info_tab.first_name_input.setText(candidate.first_name or "")
@@ -205,7 +301,8 @@ class CandidateManagementApp(QMainWindow):
         self.personal_info_tab.tax_number_input.setText(candidate.tax_number or "")
         
         if candidate.birth_date:
-            self.personal_info_tab.birth_date_edit.setDate(candidate.birth_date)
+            from PyQt6.QtCore import QDate
+            self.personal_info_tab.birth_date_edit.setDate(QDate(candidate.birth_date.year, candidate.birth_date.month, candidate.birth_date.day))
         
         self.personal_info_tab.birth_place_input.setText(candidate.birth_place or "")
         
@@ -224,13 +321,15 @@ class CandidateManagementApp(QMainWindow):
                 self.personal_info_tab.passport_number_input.setText(candidate.passport_number or "")
                 self.personal_info_tab.passport_issued_input.setText(candidate.passport_issued_by or "")
                 if candidate.passport_issue_date:
-                    self.personal_info_tab.passport_issue_date.setDate(candidate.passport_issue_date)
+                    from PyQt6.QtCore import QDate
+                    self.personal_info_tab.passport_issue_date.setDate(QDate(candidate.passport_issue_date.year, candidate.passport_issue_date.month, candidate.passport_issue_date.day))
             else:
                 self.personal_info_tab.id_card_rb.setChecked(True)
                 self.personal_info_tab.id_number_input.setText(candidate.id_card_number or "")
                 self.personal_info_tab.id_issued_by_input.setText(candidate.id_card_issued_by or "")
                 if candidate.id_card_issue_date:
-                    self.personal_info_tab.id_issue_date.setDate(candidate.id_card_issue_date)
+                    from PyQt6.QtCore import QDate
+                    self.personal_info_tab.id_issue_date.setDate(QDate(candidate.id_card_issue_date.year, candidate.id_card_issue_date.month, candidate.id_card_issue_date.day))
         
         # Адреси
         self.personal_info_tab.registration_address_input.setPlainText(candidate.registration_address or "")
@@ -288,33 +387,33 @@ class CandidateManagementApp(QMainWindow):
             self.personal_info_tab.photo_path = candidate.photo_path
             pixmap = QPixmap(candidate.photo_path)
             if not pixmap.isNull():
+                from PyQt6.QtCore import Qt
                 scaled_pixmap = pixmap.scaled(150, 200, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                 self.personal_info_tab.photo_label.setPixmap(scaled_pixmap)
     
     def clear_form(self):
         self.personal_info_tab.clear_form()
-
+    
     def save_candidate(self):
         """
         Зберігає дані кандидата до бази даних
         """
         try:
             print("Початок збереження кандидата...")
-
+            
             # Отримуємо дані з форми
             candidate_data = self.personal_info_tab.get_form_data()
             if not candidate_data:
                 print("Дані форми не валідні або скасовано")
                 return
-
+                
             print(f"Отримано дані кандидата: {candidate_data.keys()}")
-
+            
             # Перевіряємо обов'язкові поля
-            if not candidate_data.get('last_name') or not candidate_data.get('first_name') or not candidate_data.get(
-                    'tax_number'):
+            if not candidate_data.get('last_name') or not candidate_data.get('first_name') or not candidate_data.get('tax_number'):
                 QMessageBox.warning(self, "Помилка", "Заповніть обов'язкові поля: Прізвище, Ім'я, РНОКПП(ІПН)")
                 return
-
+                
             try:
                 if self.current_candidate_id:
                     # Оновлення існуючого кандидата
@@ -334,32 +433,156 @@ class CandidateManagementApp(QMainWindow):
                         QMessageBox.information(self, "Успіх", "Кандидата додано до бази даних")
                         print(f"Кандидат успішно доданий з ID: {candidate_id}")
                         self.refresh_list()
-                        # Автоматично очищаємо форму після успішного збереження
-                        self.add_candidate()
                     else:
                         QMessageBox.warning(self, "Помилка", "Не вдалося зберегти кандидата")
                         print("Помилка додавання кандидата")
-
+                        
             except Exception as db_error:
                 print(f"Помилка бази даних: {db_error}")
                 QMessageBox.critical(
-                    self,
-                    "Помилка бази даних",
+                    self, 
+                    "Помилка бази даних", 
                     f"Сталася помилка при роботі з базою даних:\n{str(db_error)}"
                 )
-
+                
         except Exception as e:
             print(f"Критична помилка в save_candidate: {e}")
             import traceback
             error_details = traceback.format_exc()
             print(f"Traceback: {error_details}")
-
+            
             QMessageBox.critical(
-                self,
-                "Критична помилка",
+                self, 
+                "Критична помилка", 
                 f"Сталася критична помилка:\n{str(e)}\n\nДеталі:\n{error_details}"
             )
     
     def save_and_new_candidate(self):
         self.save_candidate()
         self.add_candidate()
+    
+    def export_to_pdf(self):
+        if not self.current_candidate_id:
+            QMessageBox.warning(self, "Помилка", "Виберіть кандидата для експорту")
+            return
+        
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Зберегти PDF", f"candidate_{self.current_candidate_id}.pdf", "PDF Files (*.pdf)"
+        )
+        
+        if file_path:
+            candidate, phones = self.db_manager.get_candidate_by_id(self.current_candidate_id)
+            if candidate:
+                exporter = PDFExporter()
+                if exporter.export_candidate_to_pdf(candidate.__dict__, file_path):
+                    QMessageBox.information(self, "Успіх", "PDF успішно експортовано")
+                else:
+                    QMessageBox.warning(self, "Помилка", "Не вдалося експортувати PDF")
+    
+    def export_to_excel(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Зберегти Excel", "candidates.xlsx", "Excel Files (*.xlsx)"
+        )
+        
+        if file_path:
+            exporter = ExcelExporter()
+            if exporter.export_all_to_excel(file_path):
+                QMessageBox.information(self, "Успіх", "Excel успішно експортовано")
+            else:
+                QMessageBox.warning(self, "Помилка", "Не вдалося експортувати Excel")
+    
+    def create_backup(self):
+        success, message = self.backup_manager.create_backup()
+        if success:
+            QMessageBox.information(self, "Успіх", message)
+        else:
+            QMessageBox.warning(self, "Помилка", message)
+    
+    def restore_backup(self):
+        backups = self.backup_manager.get_backup_files()
+        if not backups:
+            QMessageBox.information(self, "Інформація", "Немає доступних резервних копій")
+            return
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Виберіть резервну копію", self.backup_manager.backup_dir, "Backup Files (*.db)"
+        )
+        
+        if file_path:
+            reply = QMessageBox.question(
+                self, "Підтвердження", 
+                "Ви впевнені, що хочете відновити з цієї резервної копії? Поточні дані будуть втрачені.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                success, message = self.backup_manager.restore_backup(file_path)
+                if success:
+                    QMessageBox.information(self, "Успіх", message)
+                    self.refresh_list()
+                else:
+                    QMessageBox.warning(self, "Помилка", message)
+    
+    def import_from_excel(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Відкрити Excel", "", "Excel Files (*.xlsx *.xls)"
+        )
+        
+        if file_path:
+            success, message = self.data_importer.import_from_excel(file_path)
+            if success:
+                QMessageBox.information(self, "Успіх", message)
+                self.refresh_list()
+            else:
+                QMessageBox.warning(self, "Помилка", message)
+    
+    def show_statistics(self):
+        stats_dialog = QDialog(self)
+        stats_dialog.setWindowTitle("Статистика кандидатів")
+        stats_dialog.setMinimumSize(800, 600)
+        
+        layout = QVBoxLayout()
+        
+        # Загальна статистика
+        total_count = self.statistics_manager.get_candidate_count()
+        count_label = QLabel(f"Загальна кількість кандидатів: {total_count}")
+        count_label.setStyleSheet("font-size: 14px; font-weight: bold; margin: 10px;")
+        layout.addWidget(count_label)
+        
+        # Статистика за статтю
+        gender_stats = self.statistics_manager.get_gender_stats()
+        if gender_stats:
+            gender_label = QLabel("Розподіл за статтю:")
+            gender_label.setStyleSheet("font-size: 12px; font-weight: bold; margin: 5px;")
+            layout.addWidget(gender_label)
+            
+            for gender, count in gender_stats.items():
+                gender_info = QLabel(f"{gender}: {count} кандидатів")
+                layout.addWidget(gender_info)
+        
+        # Статистика за датою
+        date_stats = self.statistics_manager.get_candidates_by_date(30)
+        if date_stats:
+            date_label = QLabel("Кандидати за останні 30 днів:")
+            date_label.setStyleSheet("font-size: 12px; font-weight: bold; margin: 5px;")
+            layout.addWidget(date_label)
+            
+            for date, count in date_stats.items():
+                date_info = QLabel(f"{date}: {count} кандидатів")
+                layout.addWidget(date_info)
+        
+        stats_dialog.setLayout(layout)
+        stats_dialog.exec()
+
+# Додаємо цей блок для запуску файлу напряму
+if __name__ == "__main__":
+    # Додаємо шляхи для імпортів
+    import sys
+    import os
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
+    from PyQt6.QtWidgets import QApplication
+    app = QApplication(sys.argv)
+    window = CandidateManagementApp()
+    window.show()
+    sys.exit(app.exec())
